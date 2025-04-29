@@ -135,6 +135,26 @@ export function clearNutridrinkTimerState(): void {
   localStorage.removeItem(NUTRIDRINK_TIMER_KEY);
 }
 
+// --- Get All Historical Data ---
+
+export function getAllHistoricalData(): DailyData[] {
+    const allData: DailyData[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('dailyData_')) {
+            const dateStr = key.substring('dailyData_'.length);
+            const data = getDataForDay(dateStr); // Use existing function to parse and handle potential errors/migrations
+            if (data) {
+                allData.push(data);
+            }
+        }
+    }
+    // Sort by date, most recent first
+    allData.sort((a, b) => b.date.localeCompare(a.date));
+    return allData;
+}
+
+
 // --- Data Reset ---
 
 export function resetAllData(): void {

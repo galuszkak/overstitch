@@ -10,6 +10,7 @@
   } from './lib/storage';
   import WaterTracker from './lib/WaterTracker.svelte';
   import Settings from './lib/Settings.svelte'; // Import the Settings component
+  import HistoryView from './lib/HistoryView.svelte'; // Import the HistoryView component
 
   // State variables
   let completedNutridrinksToday: number = 0;
@@ -234,7 +235,7 @@
 <main class="container mx-auto p-4 font-sans min-h-screen" data-theme="light">
 
   <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold text-primary">Daily Tracker</h1>
+      <h1 class="text-3xl font-bold text-primary">ESG Overstitch Prep Tracker</h1>
       <button class="btn btn-ghost btn-sm" on:click={() => showSettings = !showSettings}>
         {showSettings ? 'Close Settings' : 'Settings'}
         <!-- Optional: Add settings icon -->
@@ -330,17 +331,17 @@
   </section>
 
   <!-- History Section (Placeholder) -->
-   <section class="card bg-base-100 shadow-xl">
-     <!-- ... content ... -->
-      <div class="card-body">
+   <!-- <section class="card bg-base-100 shadow-xl">
+     <div class="card-body">
        <h2 class="card-title">History</h2>
        <p>Past consumption data will be shown here.</p>
-       <!-- TODO: Implement history view using getDataForDay -->
        <div class="card-actions justify-end">
-         <!-- Maybe add date navigation buttons here later -->
        </div>
      </div>
-   </section>
+   </section> -->
+
+   <!-- Render the HistoryView component -->
+   <HistoryView />
 
 </main>
 
