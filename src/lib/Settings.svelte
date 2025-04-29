@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getDefaultWaterServingMl, saveDefaultWaterServingMl } from './storage';
+  import { getDefaultWaterServingMl, saveDefaultWaterServingMl, resetAllData } from './storage'; // Import resetAllData
 
   let currentDefaultMl: number = 0;
   let initialDefaultMl: number = 0;
@@ -28,12 +28,21 @@
 
   $: hasChanges = currentDefaultMl !== initialDefaultMl;
 
+  function handleResetData() {
+    if (window.confirm("Are you sure you want to reset ALL data? This cannot be undone.")) {
+      resetAllData();
+      // Reload the page to reflect the cleared state
+      window.location.reload();
+    }
+  }
+
 </script>
 
 <div class="card bg-base-200 shadow-xl mt-8">
   <div class="card-body">
     <h2 class="card-title">Settings</h2>
 
+    <!-- Default Water Serving Size -->
     <div class="form-control">
       <label class="label" for="defaultWater">
         <span class="label-text">Default Water Serving Size (ml)</span>
@@ -57,6 +66,19 @@
         Save Settings
       </button>
     </div>
+
+    <!-- Reset Data Section -->
+    <div class="divider"></div>
+    <div class="form-control mt-4">
+        <label class="label">
+            <span class="label-text font-semibold">Danger Zone</span>
+        </label>
+        <p class="text-xs text-base-content/70 mb-2">Resetting will permanently delete all your tracked data (Nutridrinks, water, pills) and settings.</p>
+        <button class="btn btn-error" on:click={handleResetData}>
+            Reset All Data
+        </button>
+    </div>
+
   </div>
 </div>
 

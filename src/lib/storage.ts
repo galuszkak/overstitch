@@ -135,6 +135,25 @@ export function clearNutridrinkTimerState(): void {
   localStorage.removeItem(NUTRIDRINK_TIMER_KEY);
 }
 
+// --- Data Reset ---
+
+export function resetAllData(): void {
+  console.warn("Resetting all application data...");
+  // Iterate through all keys in localStorage
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key) {
+      // Remove daily data, timer state, and settings
+      if (key.startsWith('dailyData_') || key === NUTRIDRINK_TIMER_KEY || key.startsWith(SETTINGS_KEY_PREFIX)) {
+        localStorage.removeItem(key);
+        console.log(`Removed item: ${key}`);
+      }
+    }
+  }
+  console.log("All application data reset.");
+}
+
+
 // --- Svelte Store for reactive updates ---
 // We'll manage the daily data within the App component for now,
 // but a store could be useful if state needs sharing across components.
