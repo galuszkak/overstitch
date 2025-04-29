@@ -1,9 +1,9 @@
 import { writable } from 'svelte/store';
 
 export interface DailyData {
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD format
   completedNutridrinks: number;
-  waterServings: number;
+  waterConsumedMl: number; // New field for milliliters
   pillTaken: boolean;
 }
 
@@ -16,30 +16,17 @@ function getTodayDateString(): string {
   return `${year}-${month}-${day}`;
 }
 
-// Function to get data for a specific date
-export function getDataForDay(date: string): DailyData | null {
-  const storedData = localStorage.getItem(`day-${date}`);
-  if (storedData) {
-    try {
-      return JSON.parse(storedData) as DailyData;
-    } catch (e) {
-      console.error("Error parsing stored data for date:", date, e);
-      localStorage.removeItem(`day-${date}`); // Remove corrupted data
-      return null;
-    }
-  } 
-  return null;
-}
+// --- Constants ---
+export const DEFAULT_WATER_SERVING_ML = 250; // Keep as a fallback/initial default
+const SETTINGS_KEY_PREFIX = 'settings_';
+const DEFAULT_WATER_SERVING_KEY = `${SETTINGS_KEY_PREFIX}defaultWaterServingMl`;
 
-// Function to save data for a specific date
-export function saveDataForDay(date: string, data: DailyData): void {
-  try {
-    localStorage.setItem(`day-${date}`, JSON.stringify(data));
-  } catch (e) {
-    console.error("Error saving data for date:", date, e);
-    // Handle potential storage quota errors if necessary
-  }
-}
+// Define a default serving size (can be moved to settings later)
+const DEFAULT_DAILY_DATA: Omit<DailyData, 'date'> = {
+  completedNutridrinks: 0,
+  waterConsumedMl: 0, // New default
+  pillTaken: false,
+};
 
 // Function to get today's data, initializing if it doesn't exist
 export function getTodaysData(): DailyData {
@@ -50,7 +37,7 @@ export function getTodaysData(): DailyData {
     todayData = {
       date: todayStr,
       completedNutridrinks: 0,
-      waterServings: 0,
+      waterConsumedMl: 0,
       pillTaken: false,
     };
     saveDataForDay(todayStr, todayData);
@@ -58,7 +45,65 @@ export function getTodaysData(): DailyData {
   return todayData;
 }
 
-// --- Nutridrink Timer State Persistence ---
+// Function to retrieve data for a specific day (e.g., for history)
+export function getDataForDay(dateIsoString: string): DailyData | null {
+    const key = `dailyData_${dateIsoString}`;
+    const storedData = localStorage.getItem(key);
+    if (storedData) {
+        try {
+            const parsedData = JSON.parse(storedData) as DailyData;
+            // Ensure new field exists for older data from history
+            if (parsedData.waterConsumedMl === undefined) {
+              parsedData.waterConsumedMl = (parsedData as any).waterServings ? (parsedData as any).waterServings * DEFAULT_WATER_SERVING_ML : 0;
+              // delete (parsedData as any).waterServings; // Optional: clean up
+            }
+            return parsedData;
+        } catch (e) {
+            console.error(`Error parsing data for ${dateIsoString}`, e);
+            return null;
+        }
+    }
+    return null; // No data found for this day
+}
+
+// Function to save data for a specific date
+export function saveDataForDay(dateIsoString: string, data: DailyData) {
+  const key = `dailyData_${dateIsoString}`;
+  // Ensure the data object matches the latest interface
+  const dataToSave: DailyData = {
+      date: data.date,
+      completedNutridrinks: data.completedNutridrinks,
+      waterConsumedMl: data.waterConsumedMl ?? 0, // Ensure field exists
+      pillTaken: data.pillTaken,
+  };
+  localStorage.setItem(key, JSON.stringify(dataToSave));
+  console.log(`Data saved for ${dateIsoString}:`, dataToSave);
+}
+
+// --- Settings ---
+
+export function getDefaultWaterServingMl(): number {
+  const storedValue = localStorage.getItem(DEFAULT_WATER_SERVING_KEY);
+  if (storedValue) {
+    const parsedValue = parseInt(storedValue, 10);
+    // Ensure it's a valid number and positive, otherwise use default
+    if (!isNaN(parsedValue) && parsedValue > 0) {
+      return parsedValue;
+    }
+  }
+  return DEFAULT_WATER_SERVING_ML; // Return default if not set or invalid
+}
+
+export function saveDefaultWaterServingMl(ml: number): void {
+  if (ml > 0 && ml % 50 === 0) { // Basic validation
+    localStorage.setItem(DEFAULT_WATER_SERVING_KEY, ml.toString());
+    console.log(`Saved default water serving size: ${ml}ml`);
+  } else {
+    console.error(`Invalid default water serving size: ${ml}. Must be positive and multiple of 50.`);
+  }
+}
+
+// --- Nutridrink Timer State ---
 
 interface TimerState {
   startTime: number;

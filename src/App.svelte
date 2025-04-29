@@ -8,17 +8,21 @@
     clearNutridrinkTimerState,
     type DailyData
   } from './lib/storage';
+  import WaterTracker from './lib/WaterTracker.svelte';
+  import Settings from './lib/Settings.svelte'; // Import the Settings component
 
   // State variables
   let completedNutridrinksToday: number = 0;
-  let waterServingsToday: number = 0;
+  let waterConsumedMlToday: number = 0;
   let pillTakenToday: boolean = false;
+  let showSettings: boolean = false; // State to toggle settings visibility
 
+  // ... (Nutridrink state variables remain the same)
   let nutridrinkInProgress: boolean = false;
   let nutridrinkStartTime: number | null = null;
   let nutridrinkTimerInterval: number | null = null;
   let nutridrinkTimeRemaining: number = 0; // in seconds
-  let reminderFlags = { min10: false, min20: false, min30: false }; // Define reminderFlags
+  let reminderFlags = { min10: false, min20: false, min30: false };
 
   const NUTRIDRINK_DURATION = 30 * 60; // 30 minutes in seconds
   const currentDayString = new Date().toDateString();
@@ -29,16 +33,16 @@
     console.log("Loading data for today...");
     const data = getTodaysData(); // Gets or initializes data for today
     completedNutridrinksToday = data.completedNutridrinks;
-    waterServingsToday = data.waterServings;
+    waterConsumedMlToday = data.waterConsumedMl; // New loading
     pillTakenToday = data.pillTaken;
   }
 
   function saveData() {
     console.log("Saving data...");
     const data: DailyData = {
-      date: todayIsoString, // Added date property
+      date: todayIsoString,
       completedNutridrinks: completedNutridrinksToday,
-      waterServings: waterServingsToday,
+      waterConsumedMl: waterConsumedMlToday, // New saving
       pillTaken: pillTakenToday,
     };
     saveDataForDay(todayIsoString, data);
@@ -57,7 +61,7 @@
     if (completed) {
         completedNutridrinksToday++;
     }
-    saveData(); // Save state after stopping/completing
+    saveData(); // Save state after stopping/completing (now saves ml correctly)
   }
 
   function updateTimer() {
@@ -121,30 +125,30 @@
     if (nutridrinkTimerInterval) {
       clearInterval(nutridrinkTimerInterval);
     }
-    // Timer state is saved on start, and cleared on stop/completion.
+    // Timer state is saved on start, and cleared on stop/completing.
     // No need to save again on destroy unless pausing is implemented.
   });
 
 
   // --- Action Handlers ---
   function startNutridrink() {
-    if (nutridrinkInProgress) return; // Removed browser check
+    if (nutridrinkInProgress) return;
     console.log("Starting Nutridrink...");
     nutridrinkInProgress = true;
     nutridrinkStartTime = Date.now();
     nutridrinkTimeRemaining = NUTRIDRINK_DURATION;
     reminderFlags = { min10: false, min20: false, min30: false }; // Reset flags
 
-    // Save only the start time as per storage.ts
     saveNutridrinkTimerState(nutridrinkStartTime);
 
     updateTimer(); // Initial update
     nutridrinkTimerInterval = setInterval(updateTimer, 1000);
   }
 
-  function addWater() {
-    console.log("Adding water...");
-    waterServingsToday++;
+  // Handler for the callback prop from WaterTracker
+  function handleAddWater(amount: number) {
+    console.log(`Adding ${amount}ml water...`);
+    waterConsumedMlToday += amount;
     saveData();
   }
 
@@ -155,24 +159,46 @@
     saveData();
   }
 
-  // --- Utility ---
+  // --- Utility --- Formatters ---
   function formatTime(seconds: number): string {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
   }
 
+  // New formatter for water display
+  function formatWaterMlToLiters(ml: number): string {
+    if (ml <= 0) return '0 L';
+    const liters = ml / 1000;
+    // Show 1 decimal place, unless it's .0
+    return `${liters.toFixed(liters % 1 === 0 ? 0 : 1)} L`;
+  }
+
 </script>
 
-<!-- Add data-theme attribute to apply DaisyUI theme -->
 <main class="container mx-auto p-4 font-sans min-h-screen" data-theme="light">
 
-  <h1 class="text-3xl font-bold mb-8 text-center text-primary">Daily Tracker</h1>
+  <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold text-primary">Daily Tracker</h1>
+      <button class="btn btn-ghost btn-sm" on:click={() => showSettings = !showSettings}>
+        {showSettings ? 'Close Settings' : 'Settings'}
+        <!-- Optional: Add settings icon -->
+         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-5 ml-1">
+           <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+         </svg>
+      </button>
+  </div>
 
-  <!-- Today's Stats using DaisyUI Stats component -->
+  <!-- Conditionally render Settings -->
+  {#if showSettings}
+    <Settings />
+  {/if}
+
+  <!-- Today's Stats - Updated Water Display -->
   <section class="stats shadow w-full mb-8 bg-base-100">
     <div class="stat">
-      <div class="stat-figure text-secondary">
+      <!-- ... Nutridrink stat ... -->
+       <div class="stat-figure text-secondary">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block size-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> <!-- Placeholder icon -->
       </div>
       <div class="stat-title">Nutridrinks</div>
@@ -184,13 +210,15 @@
       <div class="stat-figure text-secondary">
          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block size-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg> <!-- Placeholder icon -->
       </div>
-      <div class="stat-title">Water Servings</div>
-      <div class="stat-value text-blue-500">{waterServingsToday}</div>
-       <div class="stat-desc">Target: 8+</div>
+      <div class="stat-title">Water Consumed</div>
+      <!-- Display formatted water amount -->
+      <div class="stat-value text-blue-500">{formatWaterMlToLiters(waterConsumedMlToday)}</div>
+       <div class="stat-desc">Target: 2+ L</div> <!-- Updated target display -->
     </div>
 
     <div class="stat">
-      <div class="stat-figure text-secondary">
+      <!-- ... Pill stat ... -->
+       <div class="stat-figure text-secondary">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block size-8 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> <!-- Placeholder icon -->
       </div>
       <div class="stat-title">Pill Taken</div>
@@ -201,10 +229,11 @@
     </div>
   </section>
 
-  <!-- Nutridrink Progress using DaisyUI Alert -->
+  <!-- Nutridrink Progress (remains the same) -->
   {#if nutridrinkInProgress}
     <section class="alert alert-warning shadow-lg mb-8">
-       <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+       <!-- ... content ... -->
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
       <div>
         <h3 class="font-bold">Nutridrink In Progress!</h3>
         <div class="text-xs">Time Remaining:</div>
@@ -223,33 +252,32 @@
     </section>
   {/if}
 
-  <!-- Action Buttons using DaisyUI Buttons -->
-  <section class="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+  <!-- Action Buttons -->
+  <section class="mb-8 grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
     <button
       on:click={startNutridrink}
       disabled={nutridrinkInProgress}
-      class="btn btn-warning w-full"
+      class="btn btn-warning w-full h-full"
     >
       Start Nutridrink
     </button>
-    <button
-      on:click={addWater}
-      class="btn btn-info w-full"
-    >
-      Add Water Serving
-    </button>
+
+    <!-- Pass the handleAddWater function as the onAddWater prop -->
+    <WaterTracker onAddWater={handleAddWater} />
+
     <button
       on:click={takePill}
       disabled={pillTakenToday}
-      class="btn btn-success w-full"
+      class="btn btn-success w-full h-full"
     >
       {pillTakenToday ? 'Pill Taken Today ✔️' : 'Take Pill'}
     </button>
   </section>
 
-  <!-- History Section (Placeholder) using DaisyUI Card -->
+  <!-- History Section (Placeholder) -->
    <section class="card bg-base-100 shadow-xl">
-     <div class="card-body">
+     <!-- ... content ... -->
+      <div class="card-body">
        <h2 class="card-title">History</h2>
        <p>Past consumption data will be shown here.</p>
        <!-- TODO: Implement history view using getDataForDay -->
@@ -262,9 +290,5 @@
 </main>
 
 <style>
-  /* Tailwind handles most styling via DaisyUI */
-  /* Add specific overrides or non-DaisyUI styles if needed */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
-  }
+  /* ... existing styles ... */
 </style>
