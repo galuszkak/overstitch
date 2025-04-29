@@ -16,6 +16,7 @@
   let waterConsumedMlToday: number = 0;
   let pillTakenToday: boolean = false;
   let showSettings: boolean = false; // State to toggle settings visibility
+  let notificationPermission: NotificationPermission = 'default'; // Track permission status
 
   // ... (Nutridrink state variables remain the same)
   let nutridrinkInProgress: boolean = false;
@@ -27,6 +28,42 @@
   const NUTRIDRINK_DURATION = 30 * 60; // 30 minutes in seconds
   const currentDayString = new Date().toDateString();
   const todayIsoString = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+  // --- Notification Logic ---
+  async function requestNotificationPermission() {
+    if (!('Notification' in window)) {
+      console.warn('This browser does not support desktop notification');
+      notificationPermission = 'denied'; // Treat as denied if not supported
+      return;
+    }
+
+    if (Notification.permission === 'granted') {
+      notificationPermission = 'granted';
+      return;
+    }
+
+    if (Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission();
+      notificationPermission = permission;
+      if (permission === 'granted') {
+        console.log('Notification permission granted.');
+      } else {
+        console.log('Notification permission denied.');
+      }
+    } else {
+        notificationPermission = 'denied';
+    }
+  }
+
+  function showNotification(title: string, body: string) {
+    if (notificationPermission === 'granted') {
+      new Notification(title, { body });
+    } else {
+      console.log('Notification permission not granted, skipping notification.');
+      // Optionally, provide fallback in-app visual feedback here if needed
+    }
+  }
+
 
   // --- Data Loading & Saving ---
   function loadDataForToday() {
@@ -60,8 +97,10 @@
     clearNutridrinkTimerState();
     if (completed) {
         completedNutridrinksToday++;
+        // Optional: Show a completion notification
+        showNotification('Nutridrink Finished!', `Your ${completedNutridrinksToday} Nutridrink for today is complete.`);
     }
-    saveData(); // Save state after stopping/completing (now saves ml correctly)
+    saveData();
   }
 
   function updateTimer() {
@@ -71,23 +110,39 @@
     const elapsedSeconds = Math.floor((now - nutridrinkStartTime) / 1000);
     nutridrinkTimeRemaining = Math.max(0, NUTRIDRINK_DURATION - elapsedSeconds);
 
-    // Update reminder flags
+    // Check and trigger notifications *before* updating flags
     const elapsedMinutes = elapsedSeconds / 60;
+
+    if (elapsedMinutes >= 10 && !reminderFlags.min10) {
+        showNotification('Nutridrink Reminder', '10 minutes passed. Keep sipping!');
+        reminderFlags.min10 = true; // Update flag *after* showing
+    }
+    if (elapsedMinutes >= 20 && !reminderFlags.min20) {
+        showNotification('Nutridrink Reminder', '20 minutes passed. Almost there!');
+        reminderFlags.min20 = true; // Update flag *after* showing
+    }
+    // No notification needed for 30 min here, handled by stopTimer completion
+
+    // Update reminder flags for UI display (can happen even if notification wasn't shown)
     reminderFlags.min10 = elapsedMinutes >= 10;
     reminderFlags.min20 = elapsedMinutes >= 20;
     reminderFlags.min30 = elapsedMinutes >= 30; // Or when time is up
 
     if (nutridrinkTimeRemaining <= 0) {
       console.log("Nutridrink finished!");
-      stopTimer(true); // Mark as completed
+      stopTimer(true); // Mark as completed (will show completion notification)
     } else {
         // Trigger reactive update
         nutridrinkTimeRemaining = nutridrinkTimeRemaining;
-        reminderFlags = reminderFlags;
+        reminderFlags = reminderFlags; // Ensure UI updates
+        // Save timer state periodically in case of refresh/close
+        saveNutridrinkTimerState(nutridrinkStartTime);
     }
   }
 
-  onMount(() => {
+  onMount(async () => { // Make onMount async
+    // Request permission early
+    await requestNotificationPermission();
 
     loadDataForToday();
 
